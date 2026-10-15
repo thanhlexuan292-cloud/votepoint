@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: votepoint-official
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: APP_NAME
+        value: VotePoint
+databases:
+  - name: votepoint-db
+    plan: basic-256mb
+    databaseName: votepoint
+    user: votepoint
