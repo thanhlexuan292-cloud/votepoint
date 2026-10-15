@@ -1,0 +1,27 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VotePoint · Ban giám khảo</title><link rel="stylesheet" href="styles.css"></head><body>
+<header><div class="brand"><div class="logo">★</div><div><h1>VotePoint · Ban giám khảo</h1><p>CỔNG CHẤM ĐIỂM CHUYÊN MÔN</p></div></div><span class="tag">WEB 02 / BGK · TRỌNG SỐ 40%</span></header>
+<main><div class="hero"><div class="eyebrow">CỔNG CHẤM ĐIỂM ĐỘC LẬP</div><h2>Phiếu chấm ban giám khảo</h2><p class="sub">Nhập điểm tổng thể từ 0–100 cho từng ứng viên. Điểm ban giám khảo đóng góp 40% vào Giải Tinh Hoa Nghệ Thuật.</p></div>
+<div class="notice">Bản demo: điểm được lưu trong localStorage của trình duyệt hiện tại. Khi triển khai chính thức nên dùng tài khoản riêng, khóa phiếu sau khi nộp và lưu dữ liệu tập trung.</div>
+<div class="two"><section class="card"><h3>Thông tin người chấm</h3><div class="field"><label for="reviewer">Mã người chấm</label><input id="reviewer" placeholder="Ví dụ: BGK-01"></div><button class="secondary full" id="load">Tải phiếu đã lưu</button><p class="small">Dùng cùng một mã để tiếp tục chỉnh sửa phiếu của mình.</p></section><section class="card"><h3>Tiến độ</h3><div class="stats"><div class="stat"><small>Đã chấm</small><strong id="count">0/15</strong></div><div class="stat"><small>Điểm trung bình</small><strong id="avg">—</strong></div></div><div class="progress"><span id="progress" style="width:0"></span></div></section></div>
+<section class="card"><h3>Danh sách ứng viên</h3><div class="table-wrap"><table><thead><tr><th>Mã</th><th>Ứng viên</th><th class="num">Điểm / 100</th><th>Nhận xét (không bắt buộc)</th></tr></thead><tbody id="rows"></tbody></table></div><button id="save" class="primary" style="margin-top:15px">Lưu phiếu chấm</button> <span id="msg" class="sub"></span></section>
+<div class="footer">Web 02 / BGK · Ban giám khảo · Điểm riêng tư không hiển thị cho người chấm khác.</div></main>
+<script>
+const CAND_KEY='vp4:candidates', VOTE_KEY='vp4:audience', JURY_KEY='vp4:jury', SENIOR_KEY='vp4:seniors', CONFIG_KEY='vp4:config';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function candidates(){try{const x=JSON.parse(localStorage.getItem(CAND_KEY));if(Array.isArray(x)&&x.length)return x}catch(e){}return Array.from({length:15},(_,i)=>({id:i+1,name:`Ứng viên ${String(i+1).padStart(2,'0')}`,group:i<5?'Nhóm A':i<10?'Nhóm B':'Nhóm C'}))}
+function saveCandidates(x){localStorage.setItem(CAND_KEY,JSON.stringify(x))}
+function read(key){try{return JSON.parse(localStorage.getItem(key)||'[]')}catch(e){return []}}
+function write(key,x){localStorage.setItem(key,JSON.stringify(x))}
+function config(){try{return JSON.parse(localStorage.getItem(CONFIG_KEY)||'{}')}catch(e){return {}}}
+function eventName(){return config().event||'Cuộc thi tài năng 2026'}
+function avgScores(entries,cid){const vals=entries.map(e=>e.scores&&e.scores[cid]).filter(v=>Number.isFinite(+v)).map(Number);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0}
+function audienceStats(){const cs=candidates(),bs=read(VOTE_KEY),valid=bs.filter(b=>Array.isArray(b.items)&&b.items.reduce((s,x)=>s+(+x.points||0),0)===100);let totals={};cs.forEach(c=>totals[c.id]=0);valid.forEach(b=>b.items.forEach(x=>{if(totals[x.id]!==undefined)totals[x.id]+=+x.points||0}));const denom=valid.length*100;return {valid,rows:cs.map(c=>({c,points:totals[c.id]||0,score:denom?(totals[c.id]||0)/denom*100:0}))}}
+function renderCandidatesEditor(elId){const cs=candidates();$(elId).innerHTML=cs.map(c=>`<div class="candidate-admin field"><label>${String(c.id).padStart(2,'0')} · Tên ứng viên</label><input data-name="${c.id}" value="${esc(c.name)}"></div>`).join('')}
+
+const KEY='vp4:jury';let scores={},notes={};
+function storageKey(){return KEY+':'+(($('reviewer').value.trim())||'BGK-01')}
+function draw(){const cs=candidates(),d=read(storageKey());const old=JSON.parse(localStorage.getItem(storageKey())||'{}');scores=old.scores||{};notes=old.notes||{};$('rows').innerHTML=cs.map(c=>`<tr><td>${String(c.id).padStart(2,'0')}</td><td>${esc(c.name)}</td><td class="num"><input type="number" min="0" max="100" data-score="${c.id}" value="${scores[c.id]??''}" placeholder="0–100"></td><td><input data-note="${c.id}" value="${esc(notes[c.id]||'')}" placeholder="Ghi chú tùy chọn"></td></tr>`).join('');document.querySelectorAll('[data-score]').forEach(x=>x.onchange=()=>{if(x.value.trim()==='')delete scores[x.dataset.score];else scores[x.dataset.score]=Math.max(0,Math.min(100,+x.value||0));progress()});document.querySelectorAll('[data-note]').forEach(x=>x.onchange=()=>notes[x.dataset.note]=x.value);progress()}
+function progress(){const vals=Object.values(scores).map(Number),n=vals.length;$('count').textContent=n+'/'+candidates().length;$('avg').textContent?n?$('avg').textContent=(vals.reduce((a,b)=>a+b,0)/n).toFixed(1):$('avg').textContent='—':null;$('progress').style.width=(n/candidates().length*100)+'%'}
+$('load').onclick=draw;$('reviewer').onchange=draw;$('save').onclick=()=>{if(!$('reviewer').value.trim()){alert('Vui lòng nhập mã người chấm.');return}localStorage.setItem(storageKey(),JSON.stringify({reviewer:$('reviewer').value.trim(),scores,notes,savedAt:new Date().toISOString()}));$('msg').textContent='Đã lưu phiếu trong trình duyệt.';progress()};draw();
+</script></body></html>
